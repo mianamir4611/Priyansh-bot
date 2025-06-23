@@ -1,24 +1,24 @@
 const fs = require("fs");
 module.exports.config = {
-	name: "mm",
+	name: "bruh",
     version: "1.0.1",
 	hasPermssion: 0,
 	credits: "𝐏𝐫𝐢𝐲𝐚𝐧𝐬𝐡 𝐑𝐚𝐣𝐩𝐮𝐭", 
-	description: "Don't Change Credits",
-	commandCategory: "no prefix",
-	usages: "xxx",
+	description: "hihihihi",
+	commandCategory: "Không cần dấu lệnh",
+	usages: "Bủh",
     cooldowns: 5, 
 };
 
 module.exports.handleEvent = function({ api, event, client, __GLOBAL }) {
 	var { threadID, messageID } = event;
-	if (event.body.indexOf("xxxx")==0 || event.body.indexOf("x")==0 || event.body.indexOf("xx")==0 || event.body.indexOf("xxx")==0) {
+  let bot = global.config.OTHERBOT;
+	if (event.body.indexOf("bruh")==0 || (event.body.indexOf("Bruh")==0) && !bot.includes(event.senderID)) {
 		var msg = {
-				body: "🥵 ahh Fuck 🥵",
-				attachment: fs.createReadStream(__dirname + `/noprefix/xf.mp3`)
+				body: "Bruh Bruuh",
+				attachment: fs.createReadStream(__dirname + `/noprefix/xxx.mp3`)
 			}
 			api.sendMessage(msg, threadID, messageID);
-    api.setMessageReaction("💦", event.messageID, (err) => {}, true)
 		}
 	}
 	module.exports.run = function({ api, event, client, __GLOBAL }) {
