@@ -5,22 +5,17 @@ const path = require("path");
 
 module.exports.config = {
   name: "mahi",
-  version: "2.1.0",
+  version: "2.5.0",
   hasPermssion: 0,
   credits: "Mian Amir",
-  description: "AI with persistent memory for each user",
+  description: "AI with memory using Gemini 2.5 Flash (OpenRouter)",
   commandCategory: "chatbots",
-  usages: "ai [message]",
-  cooldowns: 3,
-  dependencies: {}
+  usages: "mahi [message]",
+  cooldowns: 3
 };
 
 const DATA_FILE = path.join(__dirname, "ai_data.json");
-
-// Ensure file exists
-if (!fs.existsSync(DATA_FILE)) {
-  fs.writeFileSync(DATA_FILE, "{}");
-}
+if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, "{}");
 
 function loadData() {
   return JSON.parse(fs.readFileSync(DATA_FILE));
@@ -48,26 +43,27 @@ module.exports.run = async function ({ api, event, args }) {
   const userInput = isCommand ? args.join(" ") : (event.type === "message_reply" ? event.body : "");
 
   if (!userInput) {
-    return api.sendMessage("👋 Hello! Please send a message with `.ai` or reply to my message.", threadID, messageID);
+    return api.sendMessage("💬 कृपया .mahi [message] लिखो ताकि AI जवाब दे सके।", threadID, messageID);
   }
 
   const userName = await getUserName(api, senderID);
   const currentTime = moment().toISOString();
 
-  // Load saved data
   const allData = loadData();
   const history = allData[senderID] || [];
 
-  // Add new user message to history
   history.push({ role: "user", content: userInput, time: currentTime });
 
   const messages = [
-    { role: "system", content: `You are a helpful Messenger chatbot. User's name is ${userName}. Remember user info and give smart, relevant responses.` },
+    {
+      role: "system",
+      content: `तुम एक समझदार और प्यारी महिला AI हो। ${userName} तुमसे बात कर रहा है। Hindi या Punjabi में ही जवाब दो, चाहे user English में पूछे।`
+    },
     ...history
   ];
 
-  const apiKey = "ddc-a4f-58cf64b46fd84575a17c351b4dbc7da5";
-  const url = "https://api.a4f.co/v1/chat/completions";
+  const apiKey = "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"; // ✅ OpenRouter API key
+  const url = "https://openrouter.ai/api/v1/chat/completions";
 
   try {
     api.sendTypingIndicator(threadID, true);
@@ -75,28 +71,27 @@ module.exports.run = async function ({ api, event, args }) {
     const res = await axios.post(
       url,
       {
-        model: "provider-2/gpt-3.5-turbo",
+        model: "google/gemini-2.5-flash",
         messages: messages,
         temperature: 0.7
       },
       {
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
         }
       }
     );
 
     const aiReply = res.data.choices[0].message.content;
 
-    // Save AI reply too
     history.push({ role: "assistant", content: aiReply, time: currentTime });
     allData[senderID] = history;
     saveData(allData);
 
     return api.sendMessage(aiReply, threadID, messageID);
   } catch (error) {
-    console.log("❌ API error:", error.message);
-    return api.sendMessage("⚠️ AI response failed. Try again later.", threadID, messageID);
+    console.error("❌ Gemini API Error:", error.response?.data || error.message);
+    return api.sendMessage("⚠️ AI जवाब नहीं दे पाया। कृपया बाद में प्रयास करें।", threadID, messageID);
   }
 };
