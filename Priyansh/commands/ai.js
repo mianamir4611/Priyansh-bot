@@ -14,6 +14,7 @@ module.exports.config = {
   cooldowns: 3
 };
 
+// Local JSON data file to store user chat history
 const DATA_FILE = path.join(__dirname, "ai_data.json");
 if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, "{}");
 
@@ -34,10 +35,11 @@ async function getUserName(api, senderID) {
   }
 }
 
+// ElevenLabs voice generator
 async function generateVoiceFromText(text, api, threadID, messageID) {
-  const apiKey = "sk_8349f5bca5a7808a6706e09de8aabeb8c104d644dcf466f6"; // ✅ ElevenLabs API
-  const voiceId = "ulZgFXalzbrnPUGQGs0S"; // ✅ Female voice
-  const modelId = "eleven_multilingual_v2"; // ✅ Hindi + English support
+  const apiKey = "sk_37abf16c75b98ee17b3ef20cfe876e8597caa851cc94123e"; // ✅ Your ElevenLabs Key
+  const voiceId = "ulZgFXalzbrnPUGQGs0S"; // ✅ Hindi/Punjabi friendly voice
+  const modelId = "eleven_multilingual_v2"; // ✅ Supports Hindi + Punjabi
 
   const outputPath = path.join(__dirname, "aivoice.mp3");
 
@@ -45,7 +47,7 @@ async function generateVoiceFromText(text, api, threadID, messageID) {
     const res = await axios.post(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
       {
-        text: text,
+        text,
         model_id: modelId,
         voice_settings: {
           stability: 0.7,
@@ -65,14 +67,14 @@ async function generateVoiceFromText(text, api, threadID, messageID) {
     fs.writeFileSync(outputPath, res.data);
 
     return api.sendMessage(
-      { attachment: fs.createReadStream(outputPath) },
+      { body: "", attachment: fs.createReadStream(outputPath) },
       threadID,
       () => fs.unlinkSync(outputPath),
       messageID
     );
   } catch (err) {
-    console.error("❌ Voice Error:", err.message);
-    return api.sendMessage("⚠️ Voice generation failed.", threadID, messageID);
+    console.error("❌ Voice Generation Error:", err.message);
+    return api.sendMessage("⚠️ Voice banany wali api exper ho gai.", threadID, messageID);
   }
 }
 
@@ -83,7 +85,7 @@ module.exports.run = async function ({ api, event, args }) {
 
   const userInput = args.join(" ");
   if (!userInput) {
-    return api.sendMessage("💬 .ai [message] likho taake AI se voice reply mile.", threadID, messageID);
+    return api.sendMessage("💬 .ai [message] likho, AI voice reply karegi.", threadID, messageID);
   }
 
   const userName = await getUserName(api, senderID);
@@ -91,17 +93,18 @@ module.exports.run = async function ({ api, event, args }) {
   const allData = loadData();
   const history = allData[senderID] || [];
 
+  // Save user input
   history.push({ role: "user", content: userInput, time: currentTime });
 
   const messages = [
     {
       role: "system",
-      content: `You are a helpful and realistic female AI assistant. The user's name is ${userName}. Respond naturally.`
+      content: `तुम एक असली और दोस्ताना महिला एआई हो। ${userName} तुमसे बात कर रहा है। कृपया हमेशा हिंदी या पंजाबी में ही प्राकृतिक और मानवीय जवाब दो, चाहे यूज़र अंग्रेज़ी में ही क्यों न पूछे।`
     },
     ...history
   ];
 
-  const a4fApiKey = "ddc-a4f-58cf64b46fd84575a17c351b4dbc7da5"; // ✅ A4F Key
+  const a4fApiKey = "ddc-a4f-58cf64b46fd84575a17c351b4dbc7da5"; // GPT API key
   const url = "https://api.a4f.co/v1/chat/completions";
 
   try {
@@ -111,7 +114,7 @@ module.exports.run = async function ({ api, event, args }) {
       url,
       {
         model: "provider-2/gpt-3.5-turbo",
-        messages: messages,
+        messages,
         temperature: 0.7
       },
       {
@@ -124,13 +127,14 @@ module.exports.run = async function ({ api, event, args }) {
 
     const aiReply = res.data.choices[0].message.content;
 
+    // Save AI reply in history
     history.push({ role: "assistant", content: aiReply, time: currentTime });
     allData[senderID] = history;
     saveData(allData);
 
     return generateVoiceFromText(aiReply, api, threadID, messageID);
   } catch (err) {
-    console.error("❌ AI Error:", err.message);
-    return api.sendMessage("⚠️ AI reply failed. Try again later.", threadID, messageID);
+    console.error("❌ AI Response Error:", err.message);
+    return api.sendMessage("⚠️ AI se reply nahi aaya, baad mein koshish karo.", threadID, messageID);
   }
 };
