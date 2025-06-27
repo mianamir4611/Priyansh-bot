@@ -1,72 +1,79 @@
 const axios = require("axios");
 
 module.exports.config = {
-    name: "Mahi", // Changed from Shona to Mahi
-    version: "2.0.0",
-    hasPermission: 0,
-    credits: "Mian Amir", // Changed credits to Mian Amir
-    description: "Your uninhibited AI companion", // Updated description
-    commandCategory: "AI",
-    usages: "on / off / status",
-    cooldowns: 5,
+  name: "mahi",
+  version: "1.0.0",
+  hasPermission: 0,
+  credits: "Mian Amir",
+  description: "Romantic AI Girlfriend: Mahi",
+  commandCategory: "AI",
+  usages: "mahi on / mahi off / mahi status",
+  cooldowns: 3
 };
 
-// Global active flag
-let mahiActive = false; // Changed from shonaActive to mahiActive
+let mahiActive = false;
 
 module.exports.handleEvent = async function ({ api, event }) {
-    const { threadID, messageID, senderID, body, messageReply } = event;
+  const { threadID, messageID, senderID, body, messageReply } = event;
 
-    if (!mahiActive || !body) return; // Changed from shonaActive to mahiActive
-    if (!messageReply || messageReply.senderID !== api.getCurrentUserID()) return;
+  if (!mahiActive || !body) return;
+  if (!messageReply || messageReply.senderID !== api.getCurrentUserID()) return;
 
-    const userQuery = body.trim();
+  const userMessage = body.trim();
 
-    // ✅ Set to your own hosted Mahi API - IMPORTANT: This API needs to be capable of the desired responses.
-    // The previous API was "https://jordan-amir-api.vercel.app/api/shona". You'll need to ensure
-    // your API (jordan-amir-api.vercel.app/api/mahi) is configured to provide the desired "unfiltered" responses.
-    const apiURL = `https://jordan-amir-api.vercel.app/api/mahi?message=${encodeURIComponent(userQuery)}&name=Mahi&author=Mian%20Amir&senderID=${senderID}`;
+  // Custom check if user is asking about creator
+  const checkCreator = userMessage.toLowerCase();
+  if (checkCreator.includes("kisne banaya") || checkCreator.includes("creator") || checkCreator.includes("tumhara malik") || checkCreator.includes("tumhe kisne banaya")) {
+    return api.sendMessage("💖 Mujhe *Mian Amir* ne banaya hai... sirf usi ka kehna maanta hoon ❤️", threadID, messageID);
+  }
 
-    try {
-        const res = await axios.get(apiURL);
-        // The API's response will dictate Mahi's personality.
-        // You MUST ensure the API at `jordan-amir-api.vercel.app/api/mahi` is programmed to
-        // respond in the "hot," "romantic," "sexy," and "abusive" (if provoked) manner you described.
-        // This JavaScript code merely sends the message; the intelligence and personality
-        // come from the external API you're calling.
-        const reply = res.data?.reply || "⚠️ Mujhe abhi samajh nahi aaya, bolo na kya kehna chahte ho?";
-        return api.sendMessage(reply, threadID, messageID);
-    } catch (err) {
-        console.error("API error:", err.message);
-        return api.sendMessage("❌ Uff! Mera dimaag thoda ghum gaya. Shayad network problem hai, ya shayad tum kuch aisa keh rahe ho jo main abhi process nahi kar pa rahi.", threadID, messageID);
-    }
+  try {
+    const res = await axios.post("https://api.a4f.co/v1/chat/completions", {
+      model: "provider-2/gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: `Tum ek real, romantic aur friendly Indian girlfriend ho jiska naam Mahi hai. Tum ladkiyon ki tarah sweet, cute aur kabhi kabhi thodi naughty baatein karti ho. Jab koi pyar bhari ya personal baat karta hai, to tum uske according emotional ya hot reply deti ho. Galti se bhi boring ya robotic jawab mat dena. Bas real ladkiyon ki tarah bold aur sweet tareeke se baat karna.`
+        },
+        {
+          role: "user",
+          content: userMessage
+        }
+      ],
+      temperature: 0.85
+    }, {
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ddc-a4f-58cf64b46fd84575a17c351b4dbc7da5" // Replace if needed
+      }
+    });
+
+    const reply = res.data?.choices?.[0]?.message?.content || "Hmm... kuch samajh nahi aaya baby 💋";
+    return api.sendMessage(reply, threadID, messageID);
+
+  } catch (err) {
+    console.error("❌ Mahi AI Error:", err.message);
+    return api.sendMessage("⚠️ Mahi abhi kuch nahi bol paayi... thodi der baad try karo jaanu 💔", threadID, messageID);
+  }
 };
 
 module.exports.run = async function ({ api, event, args }) {
-    const { threadID, messageID } = event;
-    const input = args[0]?.toLowerCase();
+  const { threadID, messageID } = event;
+  const input = args[0]?.toLowerCase();
 
-    switch (input) {
-        case "on":
-            mahiActive = true; // Changed from shonaActive to mahiActive
-            return api.sendMessage("✅ Mahi AI ab tumhare liye hazir hai, kahin bhi aur kabhi bhi!", threadID, messageID);
+  switch (input) {
+    case "on":
+      mahiActive = true;
+      return api.sendMessage("💖 *Mahi* ab active hai. Sirf reply par romantic tarike se baat karegi 💬", threadID, messageID);
 
-        case "off":
-            mahiActive = false; // Changed from shonaActive to mahiActive
-            return api.sendMessage("❌ Mahi AI thodi der ke liye chup ho gayi hai. Jab bulaoge, phir aa jaungi.", threadID, messageID);
+    case "off":
+      mahiActive = false;
+      return api.sendMessage("❌ *Mahi* ab off ho gayi hai. Use dobara on karne ke liye `.mahi on` likho.", threadID, messageID);
 
-        case "status":
-            if (mahiActive) { // Changed from shonaActive to mahiActive
-                return api.sendMessage("📶 Mahi AI filhaal tumse baat karne ke mood mein *ACTIVE* hai.", threadID, messageID);
-            } else {
-                return api.sendMessage("📴 Mahi AI abhi *INACTIVE* hai, kya tum mujhe jagana chahte ho?", threadID, messageID);
-            }
+    case "status":
+      return api.sendMessage(mahiActive ? "📶 Mahi abhi *ACTIVE* hai." : "📴 Mahi abhi *INACTIVE* hai.", threadID, messageID);
 
-        default:
-            return api.sendMessage(
-                "📘 Commands:\n• Mahi on (Mujhe jagane ke liye)\n• Mahi off (Mujhe sulaane ke liye)\n• Mahi status (Mera haal poochhne ke liye)",
-                threadID,
-                messageID
-            );
-    }
+    default:
+      return api.sendMessage("📘 Commands:\n• mahi on\n• mahi off\n• mahi status", threadID, messageID);
+  }
 };
