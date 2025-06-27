@@ -1,96 +1,44 @@
 const axios = require("axios");
-const fs = require("fs").promises; // For file system operations
-const path = require("path"); // For path manipulation
 
 module.exports.config = {
-    name: "Mahi",
+    name: "Mahi", // Changed from Shona to Mahi
     version: "2.0.0",
     hasPermission: 0,
-    credits: "Mian Amir",
-    description: "Your uninhibited AI companion with conversation logging.",
+    credits: "Mian Amir", // Changed credits to Mian Amir
+    description: "Your uninhibited AI companion", // Updated description
     commandCategory: "AI",
     usages: "on / off / status",
     cooldowns: 5,
 };
 
 // Global active flag
-let mahiActive = false;
-
-// Directory to save logs
-const logDir = path.join(__dirname, 'Mahi_Logs');
-
-// Ensure log directory exists
-async function ensureLogDir() {
-    try {
-        await fs.mkdir(logDir, { recursive: true });
-    } catch (error) {
-        console.error("Failed to create log directory:", error);
-    }
-}
-
-// Call this once when the script loads
-ensureLogDir();
+let mahiActive = false; // Changed from shonaActive to mahiActive
 
 module.exports.handleEvent = async function ({ api, event }) {
     const { threadID, messageID, senderID, body, messageReply } = event;
 
-    // Get user info for logging
-    let senderName = "Unknown User";
-    try {
-        const userInfo = await api.getUserInfo(senderID);
-        senderName = userInfo[senderID]?.name || "Unknown User";
-    } catch (error) {
-        console.error("Failed to get sender info:", error);
-    }
-
-    if (!mahiActive || !body) return;
+    if (!mahiActive || !body) return; // Changed from shonaActive to mahiActive
     if (!messageReply || messageReply.senderID !== api.getCurrentUserID()) return;
 
     const userQuery = body.trim();
 
-    // Log the user's message
-    await logConversation({
-        threadID,
-        senderID,
-        senderName,
-        messageID,
-        type: "user",
-        content: userQuery
-    });
-
-    // ✅ Set to your own hosted Mahi API
-    // IMPORTANT: This API needs to be capable of the desired responses (romantic, sexy, abusive).
+    // ✅ Set to your own hosted Mahi API - IMPORTANT: This API needs to be capable of the desired responses.
+    // The previous API was "https://jordan-amir-api.vercel.app/api/shona". You'll need to ensure
+    // your API (jordan-amir-api.vercel.app/api/mahi) is configured to provide the desired "unfiltered" responses.
     const apiURL = `https://jordan-amir-api.vercel.app/api/mahi?message=${encodeURIComponent(userQuery)}&name=Mahi&author=Mian%20Amir&senderID=${senderID}`;
 
     try {
         const res = await axios.get(apiURL);
+        // The API's response will dictate Mahi's personality.
+        // You MUST ensure the API at `jordan-amir-api.vercel.app/api/mahi` is programmed to
+        // respond in the "hot," "romantic," "sexy," and "abusive" (if provoked) manner you described.
+        // This JavaScript code merely sends the message; the intelligence and personality
+        // come from the external API you're calling.
         const reply = res.data?.reply || "⚠️ Mujhe abhi samajh nahi aaya, bolo na kya kehna chahte ho?";
-
-        // Log Mahi's reply
-        await logConversation({
-            threadID,
-            senderID: api.getCurrentUserID(), // Mahi's ID
-            senderName: "Mahi", // Mahi's name
-            messageID: null, // No specific message ID for AI's outgoing message yet
-            type: "Mahi",
-            content: reply
-        });
-
         return api.sendMessage(reply, threadID, messageID);
     } catch (err) {
         console.error("API error:", err.message);
-        const errorMessage = "❌ Uff! Mera dimaag thoda ghum gaya. Shayad network problem hai, ya shayad tum kuch aisa keh rahe ho jo main abhi process nahi kar pa rahi.";
-
-        // Log the error message sent by the bot
-        await logConversation({
-            threadID,
-            senderID: api.getCurrentUserID(),
-            senderName: "Mahi",
-            messageID: null,
-            type: "Mahi_Error",
-            content: errorMessage
-        });
-        return api.sendMessage(errorMessage, threadID, messageID);
+        return api.sendMessage("❌ Uff! Mera dimaag thoda ghum gaya. Shayad network problem hai, ya shayad tum kuch aisa keh rahe ho jo main abhi process nahi kar pa rahi.", threadID, messageID);
     }
 };
 
@@ -100,15 +48,15 @@ module.exports.run = async function ({ api, event, args }) {
 
     switch (input) {
         case "on":
-            mahiActive = true;
+            mahiActive = true; // Changed from shonaActive to mahiActive
             return api.sendMessage("✅ Mahi AI ab tumhare liye hazir hai, kahin bhi aur kabhi bhi!", threadID, messageID);
 
         case "off":
-            mahiActive = false;
+            mahiActive = false; // Changed from shonaActive to mahiActive
             return api.sendMessage("❌ Mahi AI thodi der ke liye chup ho gayi hai. Jab bulaoge, phir aa jaungi.", threadID, messageID);
 
         case "status":
-            if (mahiActive) {
+            if (mahiActive) { // Changed from shonaActive to mahiActive
                 return api.sendMessage("📶 Mahi AI filhaal tumse baat karne ke mood mein *ACTIVE* hai.", threadID, messageID);
             } else {
                 return api.sendMessage("📴 Mahi AI abhi *INACTIVE* hai, kya tum mujhe jagana chahte ho?", threadID, messageID);
@@ -122,35 +70,3 @@ module.exports.run = async function ({ api, event, args }) {
             );
     }
 };
-
-/**
- * Logs conversation data to a JSON file.
- * Each thread will have its own JSON file.
- * @param {object} logData - The data to log (threadID, senderID, senderName, messageID, type, content).
- */
-async function logConversation(logData) {
-    const { threadID } = logData;
-    const logFilePath = path.join(logDir, `${threadID}.json`);
-
-    let conversationLog = [];
-    try {
-        const fileContent = await fs.readFile(logFilePath, 'utf8');
-        conversationLog = JSON.parse(fileContent);
-    } catch (error) {
-        // File might not exist yet, or parsing failed. Start with an empty array.
-        if (error.code !== 'ENOENT') { // ENOENT means file not found, which is fine
-            console.error(`Error reading log file ${logFilePath}:`, error);
-        }
-    }
-
-    conversationLog.push({
-        timestamp: new Date().toISOString(),
-        ...logData
-    });
-
-    try {
-        await fs.writeFile(logFilePath, JSON.stringify(conversationLog, null, 2), 'utf8');
-    } catch (error) {
-        console.error(`Error writing to log file ${logFilePath}:`, error);
-    }
-}
