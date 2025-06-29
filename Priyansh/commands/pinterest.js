@@ -24,7 +24,7 @@ module.exports.run = async ({ api, event, args }) => {
       messageID
     );
 
-  const apiKey = "api key put own";
+  const apiKey = "R9i00tjufUkiWvZ_wSytaTCBkBDCStGE3EdbnyaONFc";
 
   try {
     const res = await axios.get("https://api.unsplash.com/search/photos", {
