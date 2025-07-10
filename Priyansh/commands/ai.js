@@ -37,7 +37,7 @@ async function getUserName(api, senderID) {
 
 // ElevenLabs voice generator
 async function generateVoiceFromText(text, api, threadID, messageID) {
-  const apiKey = "sk_37abf16c75b98ee17b3ef20cfe876e8597caa851cc94123e"; // ✅ Your ElevenLabs Key
+  const apiKey = "sk_acee6b1482841911e64f146538080e88dfd4e87bfaed666b"; // ✅ Your ElevenLabs Key
   const voiceId = "ulZgFXalzbrnPUGQGs0S"; // ✅ Hindi/Punjabi friendly voice
   const modelId = "eleven_multilingual_v2"; // ✅ Supports Hindi + Punjabi
 
