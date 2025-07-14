@@ -165,13 +165,13 @@ ${list}`, threadID, messageID);
 
   try {
     const res = await axios.post("https://api.a4f.co/v1/chat/completions", {
-      model: "provider-2/gpt-3.5-turbo",
+      model: "provider-3/gpt-4",
       messages,
       temperature: 0.85
     }, {
       headers: {
         "Content-Type": "application/json",
-        "Authorization": "Bearer ddc-a4f-58cf64b46fd84575a17c351b4dbc7da5"
+        "Authorization": "Bearer ddc-a4f-78c88a7345ae4ab6b66016d3925e7faf"
       }
     });
 
