@@ -104,7 +104,7 @@ module.exports.run = async function ({ api, event, args }) {
     ...history
   ];
 
-  const a4fApiKey = "ddc-a4f-78c88a7345ae4ab6b66016d3925e7faf"; // GPT API key
+  const a4fApiKey = "ddc-a4f-f47f274913914b179813352c6eb99dcc"; // GPT API key
   const url = "https://api.a4f.co/v1/chat/completions";
 
   try {
@@ -113,7 +113,7 @@ module.exports.run = async function ({ api, event, args }) {
     const res = await axios.post(
       url,
       {
-        model: "provider-3/gpt-4",
+        model: "provider-3/grok-4-0709",
         messages,
         temperature: 0.7
       },
