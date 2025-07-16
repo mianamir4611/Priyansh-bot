@@ -1,6 +1,6 @@
 {
   "name": "Priyansh",
-  "version": "10.1.1",
+  "version": "10.1.2",
   "description": "A simple Facebook Messenger Bot made by 𝐏𝐫𝐢𝐲𝐚𝐧𝐬𝐡 𝐑𝐚𝐣𝐩𝐮𝐭.",
   "main": "Priyansh.js",
   "engines": {
@@ -8,7 +8,7 @@
     "npm": "10.0.0"
   },
   "scripts": {
-    "start": "node index.js",
+    "start": "npm install --legacy-peer-deps && node index.js",
     "login": "node login",
     "test": "node --trace-warnings --use_strict --async-stack-traces mirai"
   },
@@ -46,7 +46,7 @@
     "axios": "^0.26.1",
     "body-parser": "^1.20.0",
     "caesar-salad": "^2.1.0",
-    "canvas": "^2.9.3",
+    "canvas": "^3.1.2",
     "chalk": "^4.1.2",
     "chalkercli": "^1.6.4",
     "chand-atf": "^1.0.3",
