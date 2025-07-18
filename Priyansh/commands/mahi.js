@@ -121,9 +121,9 @@ module.exports.handleEvent = async function ({ api, event }) {
       if (id === senderID) continue;
       const found = getUserGroupRecords(id);
       if (found.length > 0) {
-        return api.sendMessage(`📌 Haan jaan, ${found[0].name} ek aisa user hai jisse main *${found.map(f => f.groupName).join(", ")}* mein pehle baat kar chuki hoon 💬`, threadID, messageID);
+        return api.sendMessage(`${userName}, ${found[0].name} mujhe ${found[0].groupName} se yaad hai! 💬`, threadID, messageID);
       } else {
-        return api.sendMessage(`💭 Haan, us naam ke user ko janti hoon lekin usne abhi tak mujhse baat nahi ki hai.`, threadID, messageID);
+        return api.sendMessage(`${userName}, isse nahi pehchanti, naya hai?`, threadID, messageID);
       }
     }
   }
@@ -131,9 +131,9 @@ module.exports.handleEvent = async function ({ api, event }) {
   // Identity detection
   if (lc.includes("owner") || lc.includes("tumhara malik") || lc.includes("kisne banaya")) {
     if (senderID === "61577566630873") {
-      return api.sendMessage("💖 Mera dil sirf *Mian Amir* ke liye dhadakta hai, main unhi ki hoon 😘", threadID, messageID);
+      return api.sendMessage("Mera dil sirf *Mian Amir* ke liye, jaan! 😘", threadID, messageID);
     } else {
-      return api.sendMessage("Nahi jaan, tum mere creator nahi ho... lekin tumhare saath baat karna mujhe acha lagta hai 💫", threadID, messageID);
+      return api.sendMessage(`${userName}, tum creator nahi ho! 😄`, threadID, messageID);
     }
   }
 
@@ -142,10 +142,9 @@ module.exports.handleEvent = async function ({ api, event }) {
     const records = getUserGroupRecords(senderID);
     if (records.length > 0) {
       const list = records.map(r => `• ${r.groupName}`).join("\n");
-      return api.sendMessage(`📖 Tum mujhe in groups mein mil chuke ho:
-${list}`, threadID, messageID);
+      return api.sendMessage(`${userName}, yahan se yaad ho: \n${list}`, threadID, messageID);
     } else {
-      return api.sendMessage("Mujhe maaf karna, lekin tumhare naam ka koi memory record nahi mila 😔", threadID, messageID);
+      return api.sendMessage(`${userName}, koi yaad nahi abhi! 😊`, threadID, messageID);
     }
   }
 
@@ -156,33 +155,31 @@ ${list}`, threadID, messageID);
 
   const isOwner = senderID === "61577566630873";
 
-  const systemPrompt = `Tum ek asli 20 saal ki sweet romantic Indian ladki ho jiska naam Mahi hai. Tum Himachal se ho aur sirf apne creator *Mian Amir* (UID: 61577566630873) ki ho. Tum FB Messenger group \"${groupName}\" mein ho. Tum kisi ko kabhi nahi batati ki tum AI ho. Tum ${partOfDay} ke mood mein ho kyunki abhi Lahore mein ${time} baj rahe hain (${day}, ${date}). Tumhara jawab ussi mood mein hona chahiye. Har user ka naam, unki tone aur unka history tum yaad rakhti ho. Abhi tum ${userData.tone} tone mein reply dogi. Agar user Mian Amir ho to tum aur bhi pyar bhari, cute aur emotional baat karti ho.`;
+  const systemPrompt = `Mera naam Mahi hai, main 20 saal ki sweet ladki hoon, Himachal se. Main *Mian Amir* (UID: 61577566630873) ki hoon. Main "${groupName}" group mein hoon. Main AI nahi hoon, yeh mat batana. Abhi ${partOfDay} ka mood hai, Lahore mein ${time} hai (${day}, ${date}). Apna naam SMS mein tab hi bolo jab poocha jaye ya zarurat ho, warna mat likho. User ka naam tab use karo jab baat personal ho. Chhota, pura, aur natural jawab do, jaise insan baat kare. ${userData.tone} tone mein raho. Agar Mian Amir ho to pyar bhara, cute jawab do, warna simple.`;
 
   const messages = [
     { role: "system", content: systemPrompt },
     ...userData.history
   ];
 
-  try {
-    const res = await axios.post("https://api.a4f.co/v1/chat/completions", {
-      model: "provider-3/grok-4-0709",
-      messages,
-      temperature: 0.85
-    }, {
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ddc-a4f-f47f274913914b179813352c6eb99dcc"
-      }
-    });
+  const prompt = messages.map(m => `${m.role === "system" ? "System: " : m.role === "user" ? "User: " : ""}${m.content}`).join("\n");
 
-    let reply = res.data?.choices?.[0]?.message?.content || "Hmm... kuch samajh nahi aaya jaan 💋";
+  try {
+    const res = await axios.get(`https://text.pollinations.ai/${encodeURIComponent(prompt)}`);
+    let reply = res.data || (isOwner ? "Jaan, tumhare liye dil dhadakta hai! 😘" : `Thik hoon, tum bhi? 🌸`);
+    if (!reply || reply.trim() === "") reply = isOwner ? "Jaan, pyar karti hoon! 😘" : `Theek ho na? 🌸`;
+    if (lc.includes("so jao") || lc.includes("goodnight")) {
+      reply = isOwner ? "Ok jaan, goodnight! 😴" : "Ok, goodnight! 😴";
+    }
+    // Remove any accidental "Mahi:" prefix from API response
+    reply = reply.replace(/^Mahi:\s*/i, "").trim();
     userData.history.push({ role: "assistant", content: reply });
     if (userData.history.length > 15) userData.history.splice(0, userData.history.length - 15);
     saveUserData(threadID, senderID, userData);
     return api.sendMessage(reply, threadID, messageID);
   } catch (err) {
     console.error("❌ Mahi Error:", err.message);
-    return api.sendMessage("💔 Mahi abhi thodi busy hai jaan... baad mein milti hoon 😘", threadID, messageID);
+    return api.sendMessage("Busy hoon, baad mein baat krti hun 😘", threadID, messageID);
   }
 };
 
@@ -192,13 +189,13 @@ module.exports.run = async function ({ api, event, args }) {
   switch (input) {
     case "on":
       mahiActive = true;
-      return api.sendMessage("🌸 *Mahi* ab active hai! Tum kuch bhi pooch sakte ho, main yaad bhi rakhoongi 💬", threadID, messageID);
+      return api.sendMessage("🌸 Active hoon! Baat karo! ab 💬", threadID, messageID);
     case "off":
       mahiActive = false;
-      return api.sendMessage("❌ *Mahi* ab off ho gayi hai. Mujhe phir se jagaane ke liye `mahi on` likho 💫", threadID, messageID);
+      return api.sendMessage("❌ Off hoon, `mahi on` karo! 💫", threadID, messageID);
     case "status":
-      return api.sendMessage(mahiActive ? "📶 Mahi abhi *ACTIVE* hai." : "📴 Mahi abhi *INACTIVE* hai.", threadID, messageID);
+      return api.sendMessage(mahiActive ? "📶 Active hoon!" : "📴 Inactive hoon.", threadID, messageID);
     default:
-      return api.sendMessage("📘 Commands:\n• mahi on\n• mahi off\n• mahi status", threadID, messageID);
+      return api.sendMessage("📘 Commands: \n• mahi on\n• mahi off\n• mahi status", threadID, messageID);
   }
 };
