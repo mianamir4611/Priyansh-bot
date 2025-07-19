@@ -20,7 +20,7 @@ module.exports.run = async function({ api, event,Threads, Users }) {
         var id = listUserID[Math.floor(Math.random() * listUserID.length)];
         var name = (await Users.getData(id)).name
         var arraytag = [];
-        const gifCute = ["https://i.pinimg.com/originals/42/9a/89/429a890a39e70d522d52c7e52bce8535.gif","https://i.imgur.com/HvPID5q.gif","https://i.pinimg.com/originals/9c/94/78/9c9478bb26b2160733ce0c10a0e10d10.gif","https://i.pinimg.com/originals/9d/0d/38/9d0d38c79b9fcf05f3ed71697039d27a.gif","https://i.imgur.com/BWji8Em.gif","https://i.imgur.com/ubJ31Mz.gif"];
+        const gifCute = ["https://i.pinimg.com/originals/42/9a/89/429a890a39e70d522d52c7e52bce8535.gif","https://i.ibb.co/r2jdFqn9/HvPID5q.gif","https://i.pinimg.com/originals/9c/94/78/9c9478bb26b2160733ce0c10a0e10d10.gif","https://i.pinimg.com/originals/9d/0d/38/9d0d38c79b9fcf05f3ed71697039d27a.gif","https://i.ibb.co/DPCPZ5d6/BWji8Em.gif","https://i.ibb.co/rK5XRF3Q/ubJ31Mz.gif"];
                 arraytag.push({id: event.senderID, tag: namee});
                 arraytag.push({id: id, tag: name});
 
