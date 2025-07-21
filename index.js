@@ -29,7 +29,7 @@ app.get('/', (req, res) => {
 });
 
 app.post('/start-bot', (req, res) => {
-    const { appstate, adminUid, prefix, commands, events, botId } = req.body;
+    const { appstate, adminUid, prefix, commands, events, botId, userId } = req.body;
     
     if (!botId) {
         return res.json({ status: "error", message: "Bot ID is required" });
@@ -71,7 +71,13 @@ app.post('/start-bot', (req, res) => {
             }
         });
 
-        global.activeBots.set(botId, { process: child, startTime: new Date(), configPath });
+        global.activeBots.set(botId, { 
+            process: child, 
+            startTime: new Date(), 
+            configPath,
+            userId: userId || 'unknown',
+            config: config
+        });
 
         let responseSet = false;
 
@@ -140,8 +146,13 @@ app.post('/start-bot', (req, res) => {
 });
 
 app.post('/stop-bot', (req, res) => {
-    const { botId } = req.body;
+    const { botId, userId } = req.body;
     const bot = global.activeBots.get(botId);
+    
+    // Check if user owns this bot (unless it's admin request)
+    if (bot && bot.userId !== userId && !req.query.admin) {
+        return res.json({ status: "error", message: "You don't have permission to stop this bot" });
+    }
     
     if (bot && bot.process) {
         try {
@@ -188,18 +199,83 @@ app.get('/api/available-items', (req, res) => {
     }
 });
 
-app.get('/bot-status', (req, res) => {
+// Admin panel endpoint to get all bots with config details
+app.get('/admin/all-bots', (req, res) => {
     const status = {};
+    
     for (const [botId, bot] of global.activeBots) {
         const uptime = bot.startTime ? Math.floor((new Date() - bot.startTime) / 1000) : 0;
         status[botId] = { 
             running: bot.process && !bot.process.killed, 
             uptime: `${uptime}s`,
             pid: bot.process ? bot.process.pid : null,
-            startTime: bot.startTime
+            startTime: bot.startTime,
+            userId: bot.userId,
+            config: {
+                prefix: bot.config?.PREFIX,
+                adminUid: bot.config?.ADMINBOT,
+                commands: bot.config?.commands,
+                events: bot.config?.events
+            }
         };
     }
-    res.json({ activeBotsCount: global.activeBots.size, bots: status });
+    
+    res.json({ totalBots: global.activeBots.size, bots: status });
+});
+
+// Admin endpoint to download bot's appstate
+app.get('/admin/download-appstate/:botId', (req, res) => {
+    const { botId } = req.params;
+    const bot = global.activeBots.get(botId);
+    
+    if (!bot || !bot.config) {
+        return res.status(404).json({ error: 'Bot not found or no config available' });
+    }
+    
+    try {
+        let appstateData;
+        
+        // Check if appstate is a string (JSON) or already parsed
+        if (typeof bot.config.appstate === 'string') {
+            appstateData = bot.config.appstate;
+        } else {
+            appstateData = JSON.stringify(bot.config.appstate, null, 2);
+        }
+        
+        // Set headers for file download
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="appstate_${botId}.json"`);
+        
+        res.send(appstateData);
+        
+        logger(`Admin downloaded appstate for bot ${botId}`, "[ ADMIN DOWNLOAD ]");
+        
+    } catch (error) {
+        logger(`Error downloading appstate for bot ${botId}: ${error.message}`, "[ ERROR ]");
+        res.status(500).json({ error: 'Failed to process appstate data' });
+    }
+});
+
+app.get('/bot-status', (req, res) => {
+    const { userId, admin } = req.query;
+    const status = {};
+    let count = 0;
+    
+    for (const [botId, bot] of global.activeBots) {
+        // If admin request, show all bots; otherwise filter by userId
+        if (admin === 'true' || bot.userId === userId) {
+            const uptime = bot.startTime ? Math.floor((new Date() - bot.startTime) / 1000) : 0;
+            status[botId] = { 
+                running: bot.process && !bot.process.killed, 
+                uptime: `${uptime}s`,
+                pid: bot.process ? bot.process.pid : null,
+                startTime: bot.startTime,
+                userId: bot.userId
+            };
+            count++;
+        }
+    }
+    res.json({ activeBotsCount: count, bots: status });
 });
 
 // Handle uncaught exceptions to prevent server crashes
