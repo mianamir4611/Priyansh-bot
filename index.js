@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs-extra');
 
 const app = express();
-const port = process.env.PORT || 8080;
+const port = process.env.PORT || 21030; // Use hosting port or default to 21030
 
 // Increase payload limits for better scalability
 app.use(express.json({ limit: '50mb' }));
@@ -24,8 +24,14 @@ app.use((req, res, next) => {
     next();
 });
 
+// Serve the index.html file for the root route with fallback
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '/public/index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
+        if (err) {
+            logger(`Error serving index.html: ${err.message}`, "[ERROR]");
+            res.status(500).send('Unable to load the webpage. Check server logs.');
+        }
+    });
 });
 
 app.post('/start-bot', (req, res) => {
@@ -35,13 +41,11 @@ app.post('/start-bot', (req, res) => {
         return res.json({ status: "error", message: "Bot ID is required" });
     }
 
-    // Check if bot is already running
     if (global.activeBots.has(botId)) {
         return res.json({ status: "error", message: "Bot is already running" });
     }
 
     try {
-        // Create config based on main config with overrides
         const baseConfig = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
         const config = {
             ...baseConfig,
@@ -81,20 +85,26 @@ app.post('/start-bot', (req, res) => {
 
         let responseSet = false;
 
-        // Set timeout for response
         const timeout = setTimeout(() => {
             if (!responseSet) {
                 responseSet = true;
                 res.json({ status: "success", message: "Bot starting..." });
             }
-        }, 1000);
+        }, 5000); // Increased timeout to 5 seconds
+
+        child.stdout.on('data', (data) => {
+            logger(`[BOT ${botId} OUTPUT]: ${data.toString()}`, "[INFO]");
+        });
+
+        child.stderr.on('data', (data) => {
+            logger(`[BOT ${botId} ERROR]: ${data.toString()}`, "[ERROR]");
+        });
 
         child.on("close", (codeExit) => {
             clearTimeout(timeout);
             logger(`Bot ${botId} closed with exit code: ${codeExit}`, "[ BOT CLOSE ]");
             global.activeBots.delete(botId);
             
-            // Clean up config file
             try {
                 if (fs.existsSync(configPath)) {
                     fs.unlinkSync(configPath);
@@ -108,7 +118,7 @@ app.post('/start-bot', (req, res) => {
                 if (codeExit === 0) {
                     res.json({ status: "success", message: "Bot started successfully" });
                 } else {
-                    res.json({ status: "error", message: `Bot exited with code ${codeExit}. Please check configuration.` });
+                    res.json({ status: "error", message: `Bot exited with code ${codeExit}. Check logs.` });
                 }
             }
         });
@@ -118,7 +128,6 @@ app.post('/start-bot', (req, res) => {
             logger(`Bot ${botId} process error: ${error.message}`, "[ BOT ERROR ]");
             global.activeBots.delete(botId);
             
-            // Clean up config file on error
             try {
                 if (fs.existsSync(configPath)) {
                     fs.unlinkSync(configPath);
@@ -129,11 +138,10 @@ app.post('/start-bot', (req, res) => {
             
             if (!responseSet) {
                 responseSet = true;
-                res.json({ status: "error", message: `Process error: ${error.message}. Please try again.` });
+                res.json({ status: "error", message: `Process error: ${error.message}. Check logs.` });
             }
         });
 
-        // Handle initial response
         if (!responseSet) {
             responseSet = true;
             res.json({ status: "success", message: "Bot starting..." });
@@ -149,7 +157,6 @@ app.post('/stop-bot', (req, res) => {
     const { botId, userId } = req.body;
     const bot = global.activeBots.get(botId);
     
-    // Check if user owns this bot (unless it's admin request)
     if (bot && bot.userId !== userId && !req.query.admin) {
         return res.json({ status: "error", message: "You don't have permission to stop this bot" });
     }
@@ -159,7 +166,6 @@ app.post('/stop-bot', (req, res) => {
             bot.process.kill('SIGTERM');
             global.activeBots.delete(botId);
             
-            // Clean up config file
             if (bot.configPath && fs.existsSync(bot.configPath)) {
                 fs.unlinkSync(bot.configPath);
             }
@@ -180,13 +186,11 @@ app.get('/api/available-items', (req, res) => {
         const commandsPath = path.join(__dirname, 'Priyansh/commands');
         const eventsPath = path.join(__dirname, 'Priyansh/events');
         
-        // Get available commands
         const commands = fs.readdirSync(commandsPath)
             .filter(file => file.endsWith('.js') && !file.includes('example'))
             .map(file => file.replace('.js', ''))
             .sort();
         
-        // Get available events
         const events = fs.readdirSync(eventsPath)
             .filter(file => file.endsWith('.js') && !file.includes('example'))
             .map(file => file.replace('.js', ''))
@@ -199,7 +203,6 @@ app.get('/api/available-items', (req, res) => {
     }
 });
 
-// Admin panel endpoint to get all bots with config details
 app.get('/admin/all-bots', (req, res) => {
     const status = {};
     
@@ -223,7 +226,6 @@ app.get('/admin/all-bots', (req, res) => {
     res.json({ totalBots: global.activeBots.size, bots: status });
 });
 
-// Admin endpoint to download bot's appstate
 app.get('/admin/download-appstate/:botId', (req, res) => {
     const { botId } = req.params;
     const bot = global.activeBots.get(botId);
@@ -233,16 +235,8 @@ app.get('/admin/download-appstate/:botId', (req, res) => {
     }
     
     try {
-        let appstateData;
+        let appstateData = typeof bot.config.appstate === 'string' ? bot.config.appstate : JSON.stringify(bot.config.appstate, null, 2);
         
-        // Check if appstate is a string (JSON) or already parsed
-        if (typeof bot.config.appstate === 'string') {
-            appstateData = bot.config.appstate;
-        } else {
-            appstateData = JSON.stringify(bot.config.appstate, null, 2);
-        }
-        
-        // Set headers for file download
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Content-Disposition', `attachment; filename="appstate_${botId}.json"`);
         
@@ -262,7 +256,6 @@ app.get('/bot-status', (req, res) => {
     let count = 0;
     
     for (const [botId, bot] of global.activeBots) {
-        // If admin request, show all bots; otherwise filter by userId
         if (admin === 'true' || bot.userId === userId) {
             const uptime = bot.startTime ? Math.floor((new Date() - bot.startTime) / 1000) : 0;
             status[botId] = { 
@@ -292,7 +285,6 @@ process.on('unhandledRejection', (reason, promise) => {
 process.on('SIGTERM', () => {
     logger('SIGTERM received, shutting down gracefully...', "[ SHUTDOWN ]");
     
-    // Stop all running bots
     for (const [botId, bot] of global.activeBots) {
         try {
             if (bot.process && !bot.process.killed) {
@@ -313,7 +305,6 @@ const server = app.listen(port, '0.0.0.0', () => {
     logger(`👑 Owner: Mian Amir | WhatsApp: +923114397148`, "[ Starting ]");
 }).on('error', (err) => {
     logger(`Server error: ${err.message}`, "[ Error ]");
-    
     if (err.code === 'EADDRINUSE') {
         logger(`Port ${port} is already in use. Trying port ${port + 1}...`, "[ Error ]");
         server.listen(port + 1, '0.0.0.0');
